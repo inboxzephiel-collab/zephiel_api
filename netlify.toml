@@ -1,0 +1,5 @@
+[build.environment]
+  # EMAIL_FROM is the public support address shown on the contact/legal pages
+  # and used as the sender for outgoing mail — it is not a secret, so don't
+  # fail the build when it appears in source or build output.
+  SECRETS_SCAN_OMIT_KEYS = "EMAIL_FROM"
