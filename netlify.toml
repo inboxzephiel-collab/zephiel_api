@@ -1,5 +1,7 @@
 [build.environment]
-  # EMAIL_FROM is the public support address shown on the contact/legal pages
-  # and used as the sender for outgoing mail — it is not a secret, so don't
-  # fail the build when it appears in source or build output.
-  SECRETS_SCAN_OMIT_KEYS = "EMAIL_FROM"
+  # Neither of these is a secret, so don't fail the build when the value appears in source:
+  #  - EMAIL_FROM: the public support address shown on the contact/legal pages + mail sender.
+  #  - SQUAD_BASE_URL: the public Squad API base. It's only read OUTSIDE production (local testing);
+  #    in production squad.ts picks the live/sandbox URL by the key prefix, so its value matching
+  #    the hardcoded URL in code is expected.
+  SECRETS_SCAN_OMIT_KEYS = "EMAIL_FROM,SQUAD_BASE_URL"
