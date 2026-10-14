@@ -13,7 +13,10 @@ export type Post = {
   publishedAt: Date;
 };
 
-const columns = sql`
+// A function, not a module-level `sql\`…\``: evaluating the tagged template at import time opens the
+// connection (the sql proxy connects on first use), which made `next build` fail with a missing
+// DATABASE_URL even though nothing queries at build. Calling it per-query keeps db access lazy.
+const columns = () => sql`
   id, slug, title, excerpt, body, tag,
   read_minutes AS "readMinutes",
   published,
@@ -22,7 +25,7 @@ const columns = sql`
 
 export async function getPosts({ limit = 200, includeDrafts = false } = {}): Promise<Post[]> {
   return sql<Post[]>`
-    SELECT ${columns} FROM posts
+    SELECT ${columns()} FROM posts
     ${includeDrafts ? sql`` : sql`WHERE published = true`}
     ORDER BY published_at DESC
     LIMIT ${limit}
@@ -31,7 +34,7 @@ export async function getPosts({ limit = 200, includeDrafts = false } = {}): Pro
 
 export async function getPost(slug: string, { includeDrafts = false } = {}) {
   const rows = await sql<Post[]>`
-    SELECT ${columns} FROM posts
+    SELECT ${columns()} FROM posts
     WHERE slug = ${slug} ${includeDrafts ? sql`` : sql`AND published = true`}
     LIMIT 1
   `;
@@ -39,6 +42,6 @@ export async function getPost(slug: string, { includeDrafts = false } = {}) {
 }
 
 export async function getPostById(id: string) {
-  const rows = await sql<Post[]>`SELECT ${columns} FROM posts WHERE id = ${id} LIMIT 1`;
+  const rows = await sql<Post[]>`SELECT ${columns()} FROM posts WHERE id = ${id} LIMIT 1`;
   return rows[0] ?? null;
 }
