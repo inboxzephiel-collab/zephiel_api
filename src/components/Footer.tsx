@@ -37,8 +37,7 @@ const columns = [
 ];
 
 const offices = [
-  { city: "Houston, Texas", lines: ["Headquarters", "United States"] },
-  { city: "Cape Town", lines: ["Regional office", "South Africa"] },
+  { city: "Akute, Ogun State", lines: ["Headquarters", "Nigeria"] },
 ];
 
 export default async function Footer() {

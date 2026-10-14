@@ -8,16 +8,10 @@ export const metadata: Metadata = {
 
 const offices = [
   {
-    city: "Houston, Texas",
+    city: "Akute, Ogun State",
     role: "Headquarters",
-    lines: ["1200 Smith Street, Suite 1600", "Houston, TX 77002", "United States"],
-    hours: "Mon–Fri, 9:00–18:00 CT",
-  },
-  {
-    city: "Cape Town",
-    role: "Regional office — Africa",
-    lines: ["The Foundry, Cardiff Street", "Green Point, Cape Town 8005", "South Africa"],
-    hours: "Mon–Fri, 9:00–18:00 SAST",
+    lines: ["No. 6 Oremeta Street", "Alagbole, Akute", "Ogun State, Nigeria"],
+    hours: "Mon–Fri, 9:00–18:00 WAT",
   },
 ];
 
