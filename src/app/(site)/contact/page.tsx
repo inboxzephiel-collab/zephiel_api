@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
 import ContactForm from "@/components/ContactForm";
+import { getOffice } from "@/lib/office";
 
 export const metadata: Metadata = {
   title: "Contact",
   description: "Talk to the Zephiel team about pricing, enterprise plans, or listing your API.",
 };
 
-const offices = [
-  {
-    city: "Akute, Ogun State",
-    role: "Headquarters",
-    lines: ["No. 6 Oremeta Street", "Alagbole, Akute", "Ogun State, Nigeria"],
-    hours: "Mon–Fri, 9:00–18:00 WAT",
-  },
-];
+export const revalidate = 60;
 
 const channels = [
   { title: "Sales", body: "Volume pricing, enterprise SLAs, and procurement paperwork.", meta: "info@zephiel.com" },
@@ -21,7 +15,9 @@ const channels = [
   { title: "Providers", body: "Listing an API on the marketplace.", meta: "info@zephiel.com" },
 ];
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const office = await getOffice();
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
       <header className="max-w-2xl">
@@ -36,20 +32,20 @@ export default function ContactPage() {
         <ContactForm />
 
         <aside className="space-y-4">
-          {offices.map((o) => (
-            <div key={o.city} className="rounded-2xl border border-line bg-surface p-6">
-              <h2 className="text-[15px] font-semibold tracking-tight text-ink">{o.city}</h2>
-              <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted">{o.role}</p>
-              <address className="mt-3 text-sm not-italic leading-7 text-muted">
-                {o.lines.map((l) => (
-                  <span key={l} className="block">
-                    {l}
-                  </span>
-                ))}
-              </address>
-              <p className="mt-3 text-xs text-muted">{o.hours}</p>
-            </div>
-          ))}
+          <div className="rounded-2xl border border-line bg-surface p-6">
+            <h2 className="text-[15px] font-semibold tracking-tight text-ink">{office.city}</h2>
+            {office.role && (
+              <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted">{office.role}</p>
+            )}
+            <address className="mt-3 text-sm not-italic leading-7 text-muted">
+              {office.lines.map((l) => (
+                <span key={l} className="block">
+                  {l}
+                </span>
+              ))}
+            </address>
+            {office.hours && <p className="mt-3 text-xs text-muted">{office.hours}</p>}
+          </div>
 
           {channels.map((c) => (
             <div key={c.title} className="rounded-2xl border border-line bg-surface p-5">

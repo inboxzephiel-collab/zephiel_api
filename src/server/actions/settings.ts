@@ -114,6 +114,55 @@ export async function savePlatformSettings(
   return { ok: "Platform settings saved." };
 }
 
+const officeSchema = z.object({
+  city: z.string().trim().max(120),
+  role: z.string().trim().max(60),
+  country: z.string().trim().max(80),
+  // Street address, one line per row (textarea).
+  address: z.string().max(600),
+  hours: z.string().trim().max(120),
+});
+
+/**
+ * The office/HQ shown in the site footer and on the contact page.
+ *
+ * Stored as a single JSON blob (office_json) so both places read one source and
+ * an address change in the console updates the whole site at once.
+ */
+export async function saveOfficeSettings(_prev: FormState, formData: FormData): Promise<FormState> {
+  const admin = await requireAdmin();
+
+  const parsed = officeSchema.safeParse({
+    city: String(formData.get("city") ?? ""),
+    role: String(formData.get("role") ?? ""),
+    country: String(formData.get("country") ?? ""),
+    address: String(formData.get("address") ?? ""),
+    hours: String(formData.get("hours") ?? ""),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+
+  const lines = parsed.data.address
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const office = {
+    city: parsed.data.city,
+    role: parsed.data.role,
+    country: parsed.data.country,
+    lines,
+    hours: parsed.data.hours,
+  };
+
+  await setSetting("office_json", JSON.stringify(office), admin.id);
+
+  revalidatePath("/admin/settings", "layout");
+  // Footer is on every page; the contact page shows the full card.
+  revalidatePath("/", "layout");
+  revalidatePath("/contact");
+  return { ok: "Office details saved — the footer and contact page now show them." };
+}
+
 const emailSchema = z.object({
   from: z
     .string()

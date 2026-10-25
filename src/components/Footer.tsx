@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCategories } from "@/server/catalog";
+import { getOffice, officeFooterLine } from "@/lib/office";
 import NewsletterForm from "./NewsletterForm";
 
 const columns = [
@@ -36,12 +37,8 @@ const columns = [
   },
 ];
 
-const offices = [
-  { city: "Akute, Ogun State", lines: ["Headquarters", "Nigeria"] },
-];
-
 export default async function Footer() {
-  const categories = await getCategories();
+  const [categories, office] = await Promise.all([getCategories(), getOffice()]);
 
   return (
     <footer className="mt-24 border-t border-line bg-surface">
@@ -73,12 +70,10 @@ export default async function Footer() {
               minutes instead of procurement cycles.
             </p>
             <address className="mt-5 space-y-3 text-sm not-italic leading-6 text-muted">
-              {offices.map((o) => (
-                <div key={o.city}>
-                  <span className="font-medium text-ink">{o.city}</span>
-                  <span className="block">{o.lines.join(" · ")}</span>
-                </div>
-              ))}
+              <div>
+                <span className="font-medium text-ink">{office.city}</span>
+                <span className="block">{officeFooterLine(office)}</span>
+              </div>
             </address>
           </div>
 

@@ -1,14 +1,17 @@
 import { getSquadConfig } from "@/lib/squad";
 import { getSettings } from "@/lib/settings";
 import { appUrl } from "@/lib/app-url";
+import { parseOffice } from "@/lib/office";
 import { Card } from "@/components/admin/PageHeader";
 import PlatformSettingsForm from "@/components/admin/PlatformSettingsForm";
+import OfficeSettingsForm from "@/components/admin/OfficeSettingsForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Platform · Settings" };
 
 export default async function PlatformSettingsPage() {
   const [config, settings] = await Promise.all([getSquadConfig(), getSettings()]);
+  const office = parseOffice(settings.office_json);
 
   return (
     <div className="space-y-4">
@@ -16,6 +19,16 @@ export default async function PlatformSettingsPage() {
         <PlatformSettingsForm
           platformName={settings.platform_name ?? "Zephiel API"}
           supportEmail={settings.support_email ?? ""}
+        />
+      </Card>
+
+      <Card title="Office / contact details" padded>
+        <OfficeSettingsForm
+          city={office.city}
+          role={office.role}
+          country={office.country}
+          address={office.lines.join("\n")}
+          hours={office.hours}
         />
       </Card>
 
