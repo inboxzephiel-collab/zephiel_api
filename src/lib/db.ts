@@ -1,5 +1,6 @@
 import "server-only";
 import postgres from "postgres";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 type Client = ReturnType<typeof postgres>;
 
@@ -9,14 +10,29 @@ declare global {
 }
 
 const MISSING_URL =
-  "DATABASE_URL is not set. On Vercel, add a Postgres database under Storage (Neon sets this " +
-  "for you). Locally, copy .env.example to .env.local and point DATABASE_URL at your database, " +
-  "then run `npm run db:migrate`.";
+  "No database connection string. On Cloudflare, bind a Hyperdrive (HYPERDRIVE) to the Worker; " +
+  "elsewhere set DATABASE_URL. Locally, copy .env.example to .env.local and point DATABASE_URL at " +
+  "your database, then run `npm run db:migrate`.";
+
+/**
+ * On Cloudflare Workers a raw TCP connection to an external Postgres is unreliable, so we go through a
+ * Hyperdrive binding (env.HYPERDRIVE.connectionString) when present. Everywhere else — local dev, the CLI
+ * scripts, Vercel — fall back to DATABASE_URL.
+ */
+function resolveConnectionString(): string | undefined {
+  try {
+    const env = getCloudflareContext().env as unknown as { HYPERDRIVE?: { connectionString?: string } };
+    if (env?.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
+  } catch {
+    // Not running under the Cloudflare runtime (dev/CLI) — use the env var below.
+  }
+  return process.env.DATABASE_URL;
+}
 
 function connect(): Client {
   if (global.__zephielSql) return global.__zephielSql;
 
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = resolveConnectionString();
   if (!connectionString) throw new Error(MISSING_URL);
 
   const client = postgres(connectionString, {
