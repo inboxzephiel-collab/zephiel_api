@@ -14,30 +14,36 @@ const MISSING_URL =
   "elsewhere set DATABASE_URL. Locally, copy .env.example to .env.local and point DATABASE_URL at " +
   "your database, then run `npm run db:migrate`.";
 
+type CfCtx = {
+  env?: { HYPERDRIVE?: { connectionString?: string } };
+  // The per-request ExecutionContext. It is a fresh object for each request, so we key the
+  // database client to it (below) to guarantee a client is never reused across requests.
+  ctx?: { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+};
+
 /**
- * On Cloudflare Workers a raw TCP connection to an external Postgres is unreliable, so we go through a
- * Hyperdrive binding (env.HYPERDRIVE.connectionString) when present. Everywhere else — local dev, the CLI
- * scripts, Vercel — fall back to DATABASE_URL.
+ * On Cloudflare Workers, an I/O object (here, a Postgres socket) opened while handling one request
+ * CANNOT be used by another request — doing so throws "Cannot perform I/O on behalf of a different
+ * request", surfacing as a Worker 1101 exception. So the usual "cache one client on a module global"
+ * pattern fails intermittently: it works only when a request happens to land on the isolate that
+ * opened the socket.
+ *
+ * The fix: on Workers, open a fresh client per request and key it to that request's ExecutionContext
+ * via a WeakMap. Within a request every `sql` use shares one client; across requests they never do.
+ * Cloudflare Hyperdrive pools the real connections on its side, so a client-per-request is cheap. The
+ * client is closed after the response via ctx.waitUntil (and idle sockets close on idle_timeout
+ * regardless), and the WeakMap entry is collected once the request context is.
+ *
+ * Off Workers (local dev, CLI scripts, any Node host) getCloudflareContext() throws — there we keep a
+ * single cached client on the module global, which is correct for a long-lived process.
  */
-function resolveConnection(): { url: string; viaHyperdrive: boolean } | undefined {
-  try {
-    const env = getCloudflareContext().env as unknown as { HYPERDRIVE?: { connectionString?: string } };
-    if (env?.HYPERDRIVE?.connectionString) return { url: env.HYPERDRIVE.connectionString, viaHyperdrive: true };
-  } catch {
-    // Not running under the Cloudflare runtime (dev/CLI) — use the env var below.
-  }
-  const url = process.env.DATABASE_URL;
-  return url ? { url, viaHyperdrive: false } : undefined;
-}
+const perRequestClients = new WeakMap<object, Client>();
 
-function connect(): Client {
-  if (global.__zephielSql) return global.__zephielSql;
-
-  const conn = resolveConnection();
-  if (!conn) throw new Error(MISSING_URL);
-
-  const client = postgres(conn.url, {
-    max: process.env.NODE_ENV === "production" ? 1 : 5,
+function makeClient(url: string, viaHyperdrive: boolean): Client {
+  return postgres(url, {
+    // Hyperdrive does the real pooling, so a small per-request client is plenty. On a direct
+    // (non-Hyperdrive) connection, keep the single long-lived pool in production.
+    max: viaHyperdrive ? 2 : process.env.NODE_ENV === "production" ? 1 : 5,
     idle_timeout: 20,
     connect_timeout: 15,
     // Supabase's transaction pooler (and most serverless poolers) don't support prepared statements —
@@ -45,16 +51,45 @@ function connect(): Client {
     prepare: false,
     // Hyperdrive proxies the connection inside the Worker and manages TLS to the origin itself, so the
     // Worker→Hyperdrive hop must NOT use TLS. A direct hosted connection does require TLS; localhost doesn't.
-    ssl: conn.viaHyperdrive
+    ssl: viaHyperdrive
       ? false
-      : conn.url.includes("localhost") || conn.url.includes("127.0.0.1")
+      : url.includes("localhost") || url.includes("127.0.0.1")
         ? false
         : "require",
   });
+}
 
-  // Cached in every environment: serverless functions reuse a warm module
-  // between invocations, and in development it stops HMR opening a new pool
-  // on each reload.
+function connect(): Client {
+  // --- Cloudflare Workers runtime: Hyperdrive binding, one client per request. ---
+  try {
+    const cf = getCloudflareContext() as unknown as CfCtx;
+    const conn = cf?.env?.HYPERDRIVE?.connectionString;
+    if (conn) {
+      const key = cf.ctx as object | undefined;
+      if (key) {
+        const existing = perRequestClients.get(key);
+        if (existing) return existing;
+        const client = makeClient(conn, true);
+        perRequestClients.set(key, client);
+        // Close it once the response is done; swallow errors (it may already be idle-closed).
+        cf.ctx?.waitUntil?.(client.end({ timeout: 5 }).catch(() => {}));
+        return client;
+      }
+      // Hyperdrive is bound but no per-request handle is available — fall back to a cached client.
+      if (global.__zephielSql) return global.__zephielSql;
+      const client = makeClient(conn, true);
+      global.__zephielSql = client;
+      return client;
+    }
+  } catch {
+    // Not running under the Cloudflare runtime (dev/CLI) — use DATABASE_URL below.
+  }
+
+  // --- Everywhere else: single cached client from DATABASE_URL. ---
+  if (global.__zephielSql) return global.__zephielSql;
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error(MISSING_URL);
+  const client = makeClient(url, false);
   global.__zephielSql = client;
   return client;
 }
