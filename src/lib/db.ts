@@ -19,32 +19,35 @@ const MISSING_URL =
  * Hyperdrive binding (env.HYPERDRIVE.connectionString) when present. Everywhere else — local dev, the CLI
  * scripts, Vercel — fall back to DATABASE_URL.
  */
-function resolveConnectionString(): string | undefined {
+function resolveConnection(): { url: string; viaHyperdrive: boolean } | undefined {
   try {
     const env = getCloudflareContext().env as unknown as { HYPERDRIVE?: { connectionString?: string } };
-    if (env?.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
+    if (env?.HYPERDRIVE?.connectionString) return { url: env.HYPERDRIVE.connectionString, viaHyperdrive: true };
   } catch {
     // Not running under the Cloudflare runtime (dev/CLI) — use the env var below.
   }
-  return process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL;
+  return url ? { url, viaHyperdrive: false } : undefined;
 }
 
 function connect(): Client {
   if (global.__zephielSql) return global.__zephielSql;
 
-  const connectionString = resolveConnectionString();
-  if (!connectionString) throw new Error(MISSING_URL);
+  const conn = resolveConnection();
+  if (!conn) throw new Error(MISSING_URL);
 
-  const client = postgres(connectionString, {
+  const client = postgres(conn.url, {
     max: process.env.NODE_ENV === "production" ? 1 : 5,
     idle_timeout: 20,
     connect_timeout: 15,
     // Supabase's transaction pooler (and most serverless poolers) don't support prepared statements —
     // postgres.js uses them by default, so disable them. Harmless on a direct/session connection.
     prepare: false,
-    // Hosted providers require TLS; a local instance usually doesn't.
-    ssl:
-      connectionString.includes("localhost") || connectionString.includes("127.0.0.1")
+    // Hyperdrive proxies the connection inside the Worker and manages TLS to the origin itself, so the
+    // Worker→Hyperdrive hop must NOT use TLS. A direct hosted connection does require TLS; localhost doesn't.
+    ssl: conn.viaHyperdrive
+      ? false
+      : conn.url.includes("localhost") || conn.url.includes("127.0.0.1")
         ? false
         : "require",
   });
