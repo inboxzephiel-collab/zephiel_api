@@ -11,7 +11,10 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "cede181f61b541c28a1bf0f7e790ddbe"
+      "id": "cede181f61b541c28a1bf0f7e790ddbe",
+      // Only for local emulation (wrangler dev) and to satisfy the deploy tool's binding check — the
+      // deployed Worker uses the real Hyperdrive config above, never this. No real credentials here.
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres"
     }
   ],
   "observability": {
