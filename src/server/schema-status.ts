@@ -1,7 +1,6 @@
 import "server-only";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { sql } from "@/lib/db";
+import { SCHEMA_SQL } from "./schema-embed";
 
 /** Tables the application expects, in dependency order. */
 export const EXPECTED_TABLES = [
@@ -71,7 +70,7 @@ export async function getSchemaStatus(): Promise<SchemaStatus> {
  * so running it against an up-to-date database is a no-op.
  */
 export async function applySchema() {
-  const path = join(process.cwd(), "db", "schema.sql");
-  const ddl = await readFile(path, "utf8");
-  await sql.unsafe(ddl);
+  // SCHEMA_SQL is generated from db/schema.sql at build (scripts/embed-schema.mjs) so this works on
+  // Cloudflare Workers, which have no filesystem. The CLI `npm run db:migrate` still reads the file.
+  await sql.unsafe(SCHEMA_SQL);
 }

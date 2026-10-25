@@ -23,6 +23,9 @@ function connect(): Client {
     max: process.env.NODE_ENV === "production" ? 1 : 5,
     idle_timeout: 20,
     connect_timeout: 15,
+    // Supabase's transaction pooler (and most serverless poolers) don't support prepared statements —
+    // postgres.js uses them by default, so disable them. Harmless on a direct/session connection.
+    prepare: false,
     // Hosted providers require TLS; a local instance usually doesn't.
     ssl:
       connectionString.includes("localhost") || connectionString.includes("127.0.0.1")
