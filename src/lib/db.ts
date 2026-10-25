@@ -30,9 +30,12 @@ type CfCtx = {
  *
  * The fix: on Workers, open a fresh client per request and key it to that request's ExecutionContext
  * via a WeakMap. Within a request every `sql` use shares one client; across requests they never do.
- * Cloudflare Hyperdrive pools the real connections on its side, so a client-per-request is cheap. The
- * client is closed after the response via ctx.waitUntil (and idle sockets close on idle_timeout
- * regardless), and the WeakMap entry is collected once the request context is.
+ * Cloudflare Hyperdrive pools the real connections on its side, so a client-per-request is cheap.
+ *
+ * We deliberately do NOT call client.end() after the response: SSR/RSC pages stream, so they keep
+ * querying after the initial Response resolves — ending the client in ctx.waitUntil would close the
+ * socket mid-stream and fail those queries. Instead the idle sockets close on idle_timeout and the
+ * WeakMap entry (and client) are collected once the request's ExecutionContext is.
  *
  * Off Workers (local dev, CLI scripts, any Node host) getCloudflareContext() throws — there we keep a
  * single cached client on the module global, which is correct for a long-lived process.
@@ -71,8 +74,6 @@ function connect(): Client {
         if (existing) return existing;
         const client = makeClient(conn, true);
         perRequestClients.set(key, client);
-        // Close it once the response is done; swallow errors (it may already be idle-closed).
-        cf.ctx?.waitUntil?.(client.end({ timeout: 5 }).catch(() => {}));
         return client;
       }
       // Hyperdrive is bound but no per-request handle is available — fall back to a cached client.
