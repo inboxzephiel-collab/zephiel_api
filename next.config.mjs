@@ -1,17 +1,16 @@
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Lets `next dev` talk to the Cloudflare bindings (ASSETS, env) locally. No-op in production builds.
+initOpenNextCloudflareForDev();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   // Pin the workspace root so an unrelated lockfile in a parent directory
   // can't be inferred as the project root.
   turbopack: { root: import.meta.dirname },
-
-  // db/schema.sql is read at runtime by the admin "run migrations" action, so
-  // it must be traced into the serverless bundle — it is data, not code, and
-  // would otherwise be left behind.
-  outputFileTracingIncludes: {
-    "/admin/settings": ["./db/schema.sql"],
-    "/api/admin/migrate": ["./db/schema.sql"],
-  },
+  // The schema SQL is embedded at build (scripts/embed-schema.mjs → src/server/schema-embed.ts) so the
+  // in-app migrate action works on Workers (no filesystem); no runtime file tracing needed.
 };
 
 export default nextConfig;

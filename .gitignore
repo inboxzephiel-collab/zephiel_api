@@ -7,3 +7,7 @@ out
 next-env.d.ts
 .DS_Store
 .pgdata
+.env*
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
