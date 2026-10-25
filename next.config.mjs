@@ -1,7 +1,7 @@
-import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
-
-// Lets `next dev` talk to the Cloudflare bindings (ASSETS, env) locally. No-op in production builds.
-initOpenNextCloudflareForDev();
+// NOTE: we deliberately do NOT call initOpenNextCloudflareForDev() here. With a Hyperdrive binding it
+// throws during `next build` (it wants a local Postgres string to emulate Hyperdrive), and it's only for
+// `next dev`. The deployed Worker gets bindings from OpenNext's getCloudflareContext() natively, and local
+// dev falls back to DATABASE_URL in src/lib/db.ts — so it isn't needed either way.
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
