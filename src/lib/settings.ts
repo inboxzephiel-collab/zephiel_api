@@ -27,7 +27,9 @@ export type SettingKey =
   // Squad currency at the live rate; this is display only).
   | "invoice_currency"
   // JSON blob of per-template copy overrides (see lib/email-templates.ts).
-  | "email_templates";
+  | "email_templates"
+  // JSON blob of the office/HQ shown in the footer and on the contact page (see lib/office.ts).
+  | "office_json";
 
 const SECRET_KEYS: SettingKey[] = ["squad_secret_key", "resend_api_key"];
 
