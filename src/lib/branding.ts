@@ -1,6 +1,27 @@
 import "server-only";
 import { getSettings } from "./settings";
-import { appUrl } from "./app-url";
+import { appUrl, GATEWAY_BASE } from "./app-url";
+
+/** Public, always-reachable logo used when the configured/derived one isn't usable. */
+const PUBLIC_FALLBACK_LOGO = new URL("/logo-192.png", GATEWAY_BASE).toString();
+
+/**
+ * A logo URL only works in emails, receipts and invoices if it's a PUBLIC absolute
+ * URL. A localhost/127.0.0.1 value — easily saved while developing, since the default
+ * derives from APP_URL which falls back to http://localhost:3000 — renders as a broken
+ * image everywhere it's used. Guard against it so the brand logo always loads.
+ */
+function usableLogoUrl(candidate: string | undefined): string {
+  if (!candidate) return PUBLIC_FALLBACK_LOGO;
+  try {
+    const h = new URL(candidate).hostname.toLowerCase();
+    const local =
+      h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h.endsWith(".local");
+    return local ? PUBLIC_FALLBACK_LOGO : candidate;
+  } catch {
+    return PUBLIC_FALLBACK_LOGO;
+  }
+}
 
 export type Branding = {
   /** Absolute URL to the logo shown at the top of every message and document. */
@@ -61,7 +82,7 @@ export async function getBranding(): Promise<Branding> {
     .map(([label, url]) => ({ label, url: url as string }));
 
   return {
-    logoUrl: settings.brand_logo_url || d.logoUrl,
+    logoUrl: usableLogoUrl(settings.brand_logo_url || d.logoUrl),
     color: isHexColor(settings.brand_color) ? settings.brand_color! : d.color,
     footer: settings.email_footer || d.footer,
     companyName,
