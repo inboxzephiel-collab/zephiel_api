@@ -96,13 +96,23 @@ export async function unreadableSecrets(): Promise<SettingKey[]> {
 }
 
 /** All settings, with secrets decrypted. Missing keys are simply absent. */
+type SettingRow = { key: SettingKey; value: string; is_secret: boolean };
+
 export async function getSettings(): Promise<Partial<Record<SettingKey, string>>> {
-  const rows = await sql<{ key: SettingKey; value: string; is_secret: boolean }[]>`
-    SELECT key, value, is_secret FROM settings
-  `;
+  // Read inside an explicit transaction so Cloudflare Hyperdrive does NOT serve a cached copy of
+  // this query. Hyperdrive caches plain read queries for up to ~60s, which made a just-saved setting
+  // (office address, branding, Squad config) read back stale — the admin form showed the new value,
+  // then reverted to the previous one on reload. Hyperdrive never caches queries run in a transaction,
+  // so wrapping the SELECT here restores read-after-write consistency for settings. Low-volume read;
+  // the extra BEGIN/COMMIT round-trip is a fair price for correct settings. Writes (setSetting) are
+  // never cached.
+  const rows = await sql.begin((tx) => [
+    tx<SettingRow[]>`SELECT key, value, is_secret FROM settings`,
+  ]);
+  const settingRows = (rows as unknown as SettingRow[][])[0] ?? [];
 
   const out: Partial<Record<SettingKey, string>> = {};
-  for (const row of rows) {
+  for (const row of settingRows) {
     if (!row.value) continue;
     const value = row.is_secret ? decrypt(row.value) : row.value;
     if (value) out[row.key] = value;
