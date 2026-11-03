@@ -205,17 +205,35 @@ export default function PlanChooser({
               </dl>
 
               {isCurrent ? (
-                <p className="mt-4 rounded-lg bg-elevated px-3 py-2 text-center text-xs text-muted">
-                  {/* A free tier is not renewed, it resets — and the useful
-                      thing to offer there is an upgrade, not a date. */}
-                  {p.price === 0
-                    ? renews
-                      ? `Free — allowance resets ${renews}`
-                      : "Free plan"
-                    : renews
-                      ? `Renews ${renews}`
-                      : "Active"}
-                </p>
+                <div className="mt-4 space-y-2">
+                  <p className="rounded-lg bg-elevated px-3 py-2 text-center text-xs text-muted">
+                    {/* A free tier is not renewed, it resets — and the useful
+                        thing to offer there is an upgrade, not a date. */}
+                    {p.price === 0
+                      ? renews
+                        ? `Free — allowance resets ${renews}`
+                        : "Free plan"
+                      : renews
+                        ? `Renews ${renews}`
+                        : "Active"}
+                  </p>
+                  {/* Renewals are charged per period (no stored-card auto-charge), so give the
+                      current paid plan a button that takes the customer straight to the payment
+                      page — the same checkout the plan cards use, posted with this plan's id. */}
+                  {p.price > 0 && (
+                    <form action={subscribe}>
+                      <input type="hidden" name="planId" value={p.id} />
+                      <input type="hidden" name="apiSlug" value={subscription.apiSlug} />
+                      <input type="hidden" name="units" value={billableUnits} />
+                      <input type="hidden" name="interval" value={interval} />
+                      <ChangeButton
+                        label={blocked ? "Payments unavailable" : "Renew now"}
+                        disabled={blocked}
+                        emphasis={false}
+                      />
+                    </form>
+                  )}
+                </div>
               ) : quoted ? (
                 <Link
                   href={`/contact?plan=enterprise&api=${subscription.apiSlug}`}
