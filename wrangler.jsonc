@@ -17,6 +17,18 @@
       "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres"
     }
   ],
+  // `wrangler preview` (used by non-production branch builds) requires an explicit previews binding for
+  // Hyperdrive; without it the preview deploy fails with "missing a `previews` block". Point it at the
+  // same Hyperdrive so branch previews run against the real database and are actually testable.
+  // Production (`wrangler deploy` from main) uses the top-level `hyperdrive` binding above, unaffected.
+  "previews": {
+    "hyperdrive": [
+      {
+        "binding": "HYPERDRIVE",
+        "id": "cede181f61b541c28a1bf0f7e790ddbe"
+      }
+    ]
+  },
   "observability": {
     "enabled": true
   }
