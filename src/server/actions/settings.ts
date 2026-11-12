@@ -114,6 +114,26 @@ export async function savePlatformSettings(
   return { ok: "Platform settings saved." };
 }
 
+/**
+ * Admin-authored Terms of Service, Privacy Policy and GDPR copy. When a box is non-empty, that page
+ * renders the admin's HTML instead of the built-in placeholder (demo disclaimer included); a blank box
+ * restores the default. This is how real, lawyer-reviewed legal text replaces the demo copy.
+ */
+export async function saveLegalSettings(_prev: FormState, formData: FormData): Promise<FormState> {
+  const admin = await requireAdmin();
+  const terms = String(formData.get("terms") ?? "").trim().slice(0, 100_000);
+  const privacy = String(formData.get("privacy") ?? "").trim().slice(0, 100_000);
+  const gdpr = String(formData.get("gdpr") ?? "").trim().slice(0, 100_000);
+  await setSetting("legal_terms", terms, admin.id);
+  await setSetting("legal_privacy", privacy, admin.id);
+  await setSetting("legal_gdpr", gdpr, admin.id);
+  revalidatePath("/admin/settings", "layout");
+  revalidatePath("/legal/terms");
+  revalidatePath("/legal/privacy");
+  revalidatePath("/legal/gdpr");
+  return { ok: "Saved. The public Terms, Privacy and GDPR pages now show your copy." };
+}
+
 const officeSchema = z.object({
   city: z.string().trim().max(120),
   role: z.string().trim().max(60),

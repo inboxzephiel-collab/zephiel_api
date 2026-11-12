@@ -69,7 +69,7 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           Terms
         </Link>{" "}
         and{" "}
-        <Link href="/legal/terms" className="underline hover:text-ink">
+        <Link href="/legal/privacy" className="underline hover:text-ink">
           Privacy Policy
         </Link>
         .
