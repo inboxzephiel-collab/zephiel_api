@@ -31,8 +31,9 @@ export type SettingKey =
   // JSON blob of the office/HQ shown in the footer and on the contact page (see lib/office.ts).
   | "office_json"
   // Admin-authored legal page bodies (HTML). When set, each REPLACES the built-in placeholder
-  // Terms & Privacy / GDPR page (demo disclaimer included). Blank = show the built-in default.
+  // Terms of Service / Privacy Policy / GDPR page (demo disclaimer included). Blank = default.
   | "legal_terms"
+  | "legal_privacy"
   | "legal_gdpr";
 
 const SECRET_KEYS: SettingKey[] = ["squad_secret_key", "resend_api_key"];

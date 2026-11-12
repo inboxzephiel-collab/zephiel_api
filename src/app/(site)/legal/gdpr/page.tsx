@@ -349,7 +349,13 @@ export default async function GdprPage() {
             href="/legal/terms"
             className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-elevated"
           >
-            Terms &amp; Privacy
+            Terms of Service
+          </Link>
+          <Link
+            href="/legal/privacy"
+            className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-elevated"
+          >
+            Privacy Policy
           </Link>
         </div>
       </div>

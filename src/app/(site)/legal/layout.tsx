@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 const pages = [
-  { href: "/legal/terms", label: "Terms & Privacy" },
+  { href: "/legal/terms", label: "Terms of Service" },
+  { href: "/legal/privacy", label: "Privacy Policy" },
   { href: "/legal/gdpr", label: "GDPR compliance" },
 ];
 
