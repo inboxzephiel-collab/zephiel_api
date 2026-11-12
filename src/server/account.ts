@@ -97,7 +97,11 @@ export async function getAccountSummary(userId: string) {
         + (SELECT COUNT(*) FROM usage_events
           WHERE user_id = ${userId} AND created_at >= CURRENT_DATE)
       )::text AS calls,
-      (SELECT COALESCE(SUM(p.price * s.units), 0) FROM subscriptions s
+      -- Per-store plans include the first store free (billable = units - 1), matching
+      -- lib/plans.billableStoreUnits and the billing page. Non-per-store plans bill as 1.
+      (SELECT COALESCE(SUM(p.price * CASE WHEN p.unit IS NOT NULL
+                                          THEN GREATEST(0, s.units - 1) ELSE 1 END), 0)
+        FROM subscriptions s
         JOIN plans p ON p.id = s.plan_id
         WHERE s.user_id = ${userId} AND s.status = 'active')::text AS spend,
       (

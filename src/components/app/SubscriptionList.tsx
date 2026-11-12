@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { Subscription } from "@/lib/types";
 import ApiIcon from "@/components/ApiIcon";
 import { cancelSubscription } from "@/server/actions/subscribe";
+import { billableStoreUnits } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "active" | "attention";
@@ -119,7 +120,8 @@ export default function SubscriptionList({ subs }: { subs: Subscription[] }) {
           const pct = s.quota === 0 ? 0 : Math.min(100, Math.round((s.used / s.quota) * 100));
           const hot = pct >= 80;
           const renews = daysLeft(s.currentPeriodEnd);
-          const monthly = s.planPrice * (s.planUnit ? s.units : 1);
+          // First store free on per-store plans (billable = units - 1), matching the billing page.
+          const monthly = s.planPrice * billableStoreUnits(s.planUnit, s.units);
 
           return (
             <div
