@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { getSettings } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Terms & Privacy",
   description: "Terms of service and privacy summary for the Zephiel API platform.",
 };
+
+// Re-read each request so admin edits (Settings → Legal pages) show without a redeploy.
+export const dynamic = "force-dynamic";
 
 const sections = [
   {
@@ -36,27 +40,41 @@ const sections = [
   },
 ];
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const settings = await getSettings();
+  const custom = (settings.legal_terms ?? "").trim();
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">Terms &amp; Privacy</h1>
-      <p className="mt-3 text-sm text-muted">Last updated August 26, 2026</p>
 
-      <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-        <p className="text-sm leading-6 text-muted">
-          This is placeholder copy for a demo project, not legal advice. Replace it with terms reviewed by
-          a qualified lawyer before running a real service.
-        </p>
-      </div>
+      {custom ? (
+        // Admin-authored copy (Settings → Legal pages) fully replaces the demo text + disclaimer.
+        <div
+          className="mt-8 space-y-4 text-sm leading-7 text-muted [&_a]:text-brand-600 [&_a]:underline [&_h2]:mt-8 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-ink [&_h3]:mt-6 [&_h3]:font-semibold [&_h3]:text-ink [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+          dangerouslySetInnerHTML={{ __html: custom }}
+        />
+      ) : (
+        <>
+          <p className="mt-3 text-sm text-muted">Last updated August 26, 2026</p>
 
-      <div className="mt-10 space-y-8">
-        {sections.map((s) => (
-          <section key={s.h}>
-            <h2 className="text-base font-semibold tracking-tight text-ink">{s.h}</h2>
-            <p className="mt-2 text-sm leading-7 text-muted">{s.p}</p>
-          </section>
-        ))}
-      </div>
+          <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+            <p className="text-sm leading-6 text-muted">
+              This is placeholder copy for a demo project, not legal advice. Replace it with terms reviewed by
+              a qualified lawyer before running a real service.
+            </p>
+          </div>
+
+          <div className="mt-10 space-y-8">
+            {sections.map((s) => (
+              <section key={s.h}>
+                <h2 className="text-base font-semibold tracking-tight text-ink">{s.h}</h2>
+                <p className="mt-2 text-sm leading-7 text-muted">{s.p}</p>
+              </section>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

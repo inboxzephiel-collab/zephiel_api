@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSettings } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "GDPR compliance",
   description:
     "How Zephiel API handles personal data under the GDPR: lawful bases, data categories, retention, subprocessors, international transfers, and how to exercise your rights.",
 };
+
+// Re-read each request so admin edits (Settings → Legal pages) show without a redeploy.
+export const dynamic = "force-dynamic";
 
 const LAST_UPDATED = "27 August 2026";
 
@@ -85,7 +89,28 @@ const rights = [
   { name: "Withdraw consent", detail: "Where processing relies on consent, withdraw it at any time without affecting prior processing." },
 ];
 
-export default function GdprPage() {
+export default async function GdprPage() {
+  const settings = await getSettings();
+  const custom = (settings.legal_gdpr ?? "").trim();
+
+  // Admin-authored copy (Settings → Legal pages) fully replaces the demo text + disclaimer.
+  if (custom) {
+    return (
+      <article className="max-w-3xl">
+        <header>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600">Compliance</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+            GDPR compliance
+          </h1>
+        </header>
+        <div
+          className="mt-8 space-y-4 text-[15px] leading-8 text-muted [&_a]:text-brand-600 [&_a]:underline [&_h2]:mt-10 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-ink [&_h3]:mt-6 [&_h3]:font-semibold [&_h3]:text-ink [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:mt-4 [&_table]:w-full [&_th]:py-2 [&_th]:pr-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-ink [&_td]:py-2 [&_td]:pr-4 [&_td]:align-top"
+          dangerouslySetInnerHTML={{ __html: custom }}
+        />
+      </article>
+    );
+  }
+
   return (
     <article className="max-w-3xl">
       <header>

@@ -8,6 +8,7 @@ const tabs = [
   { href: "/admin/settings/payments", label: "Payments" },
   { href: "/admin/settings/email", label: "Email & documents" },
   { href: "/admin/settings/platform", label: "Platform" },
+  { href: "/admin/settings/legal", label: "Legal pages" },
   { href: "/admin/settings/data", label: "Data & maintenance" },
 ];
 
