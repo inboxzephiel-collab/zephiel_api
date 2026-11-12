@@ -6,7 +6,8 @@ import { getSquadConfig } from "@/lib/squad";
 import PlanChooser from "@/components/app/PlanChooser";
 import { compact } from "@/lib/utils";
 import { formatCurrency } from "@/lib/squad";
-import { billableStoreUnits } from "@/lib/plans";
+import { billableStoreUnits, priceFor } from "@/lib/plans";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Billing" };
@@ -14,7 +15,7 @@ export const metadata = { title: "Billing" };
 export default async function BillingPage() {
   const user = await requireUser();
 
-  const [subs, squad, invoices] = await Promise.all([
+  const [subs, squad, invoices, settings] = await Promise.all([
     getSubscriptions(user.id),
     getSquadConfig(),
     sql<
@@ -26,17 +27,29 @@ export default async function BillingPage() {
         paid_at: Date | null;
         created_at: Date;
         api_name: string | null;
+        plan_unit: string | null;
+        plan_price: string | null;
+        units: number | null;
+        billing_interval: string | null;
       }[]
     >`
-      SELECT p.invoice_number, p.amount::text, p.currency, p.status, p.paid_at, p.created_at, a.name AS api_name
+      SELECT p.invoice_number, p.amount::text, p.currency, p.status, p.paid_at, p.created_at,
+             a.name AS api_name, pl.unit AS plan_unit, pl.price::text AS plan_price,
+             p.units, s.billing_interval
       FROM payments p
       LEFT JOIN subscriptions s ON s.id = p.subscription_id
       LEFT JOIN apis a ON a.id = s.api_id
+      LEFT JOIN plans pl ON pl.id = s.plan_id
       WHERE p.user_id = ${user.id} AND p.invoice_number IS NOT NULL
       ORDER BY COALESCE(p.paid_at, p.created_at) DESC
       LIMIT 50
     `,
+    getSettings().catch(() => ({}) as Record<string, string>),
   ]);
+  // Invoice history mirrors the invoice documents: show the canonical USD figure (plan price × billed
+  // units) when the display currency is USD, with the Naira actually charged kept as a reconciliation
+  // note. Same rule as buildInvoiceDocument — never invents an amount, just restates the real charge.
+  const wantUsd = (settings.invoice_currency || "USD").toUpperCase() === "USD";
   const active = subs.filter((s) => s.status === "active");
 
   const plans = await sql<
@@ -213,8 +226,24 @@ export default async function BillingPage() {
                   <tbody className="divide-y divide-line">
                     {invoices.map((inv) => {
                       const paid = inv.status === "success";
-                      const total = formatCurrency(Math.round(Number(inv.amount) * 100), inv.currency);
-                      const credits = formatCurrency(0, inv.currency);
+                      const charged = formatCurrency(Math.round(Number(inv.amount) * 100), inv.currency);
+                      const qty = inv.plan_unit ? inv.units ?? 1 : 1;
+                      const planUsd = inv.plan_price != null ? Number(inv.plan_price) : null;
+                      const showUsd =
+                        wantUsd && inv.currency !== "USD" && planUsd != null && Number.isFinite(planUsd);
+                      const total = showUsd
+                        ? formatCurrency(
+                            Math.round(
+                              priceFor(planUsd!, inv.billing_interval === "annual" ? "annual" : "monthly") *
+                                qty *
+                                100
+                            ),
+                            "USD"
+                          )
+                        : charged;
+                      // When displaying USD, keep the real Naira charge visible underneath as reconciliation.
+                      const note = showUsd ? charged : null;
+                      const credits = formatCurrency(0, showUsd ? "USD" : inv.currency);
                       return (
                         <tr key={inv.invoice_number}>
                           <td className="py-3 pr-4">
@@ -238,7 +267,12 @@ export default async function BillingPage() {
                           </td>
                           <td className="py-3 pr-4 text-right tabular-nums text-muted">{total}</td>
                           <td className="py-3 pr-4 text-right tabular-nums text-muted">{credits}</td>
-                          <td className="py-3 pr-4 text-right font-semibold tabular-nums text-ink">{total}</td>
+                          <td className="py-3 pr-4 text-right font-semibold tabular-nums text-ink">
+                            {total}
+                            {note && (
+                              <span className="block text-xs font-normal text-muted">charged {note}</span>
+                            )}
+                          </td>
                           <td className="py-3 text-right">
                             <Link
                               href={`/dashboard/billing/${inv.invoice_number}`}
