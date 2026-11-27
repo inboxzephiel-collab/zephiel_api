@@ -1,0 +1,70 @@
+name: Scheduled jobs
+
+# Restores the cron jobs that vercel.json used to run. The app now deploys to
+# Cloudflare Workers (via OpenNext), and Workers do not read vercel.json, so these
+# schedules stopped firing after the migration — usage stopped rolling up and the
+# quota counters drifted. This workflow calls the same HTTP endpoints on schedule.
+#
+# Setup (one time):
+#   - Add a repository secret CRON_SECRET matching the deployed Worker's CRON_SECRET.
+#   - Optionally add a repository variable ZEPHIEL_BASE_URL (defaults to the apex).
+# Notes:
+#   - Scheduled workflows run from the DEFAULT branch only, so this must be on main.
+#   - GitHub pauses scheduled workflows after ~60 days with no repo activity.
+#   - Schedules are UTC and may start a few minutes late under load — fine here.
+
+on:
+  schedule:
+    - cron: "10 0 * * *" # usage-rollup — fold events into daily, reconcile used, extend demo curves
+    - cron: "0 9 * * *" # renewal-reminders
+  workflow_dispatch:
+    inputs:
+      endpoint:
+        description: Which cron endpoint to run now
+        type: choice
+        options:
+          - usage-rollup
+          - renewal-reminders
+        default: usage-rollup
+
+permissions: {}
+
+concurrency:
+  group: zephiel-cron-${{ github.event.schedule || github.event.inputs.endpoint }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Choose endpoint for this trigger
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "10 0 * * *") ep=usage-rollup ;;
+            "0 9 * * *")  ep=renewal-reminders ;;
+            *)            ep="${{ github.event.inputs.endpoint }}" ;;
+          esac
+          echo "endpoint=${ep:-usage-rollup}" >> "$GITHUB_OUTPUT"
+
+      - name: Call Zephiel cron endpoint
+        env:
+          BASE_URL: ${{ vars.ZEPHIEL_BASE_URL || 'https://zephiel.com' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repository secret is not set — nothing to authenticate with."
+            exit 1
+          fi
+          url="${BASE_URL%/}/api/cron/${{ steps.pick.outputs.endpoint }}"
+          echo "GET $url"
+          code=$(curl -sS -o response.json -w '%{http_code}' --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" "$url")
+          echo "HTTP $code"
+          echo "----- response -----"
+          cat response.json || true
+          echo
+          case "$code" in
+            2*) echo "Cron run OK." ;;
+            *)  echo "::error::Cron call to $url failed with HTTP $code"; exit 1 ;;
+          esac
