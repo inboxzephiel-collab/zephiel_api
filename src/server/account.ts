@@ -130,6 +130,14 @@ export async function getUsageByApi(userId: string) {
       SELECT api_id, 1 FROM usage_events WHERE user_id = ${userId} AND created_at >= CURRENT_DATE
     ) t
     JOIN apis a ON a.id = t.api_id
+    -- Only break down APIs this account actually subscribes to. Historical
+    -- traffic can linger under an API the account is no longer on (e.g. a demo
+    -- rebuilt around a different product), and an unsubscribed API dominating the
+    -- breakdown contradicts the single subscription the rest of the page shows.
+    WHERE EXISTS (
+      SELECT 1 FROM subscriptions su
+      WHERE su.user_id = ${userId} AND su.api_id = a.id
+    )
     GROUP BY a.id, a.name, a.color
     ORDER BY SUM(t.calls) DESC
     LIMIT 10

@@ -176,6 +176,17 @@ export async function generateDemoTraffic(_prev: FormState, formData: FormData):
     totalCalls: parsed.data.total,
   });
 
+  // The generated history IS this account's usage now, so clear any admin-typed
+  // baseline (used_offset). Left in place, the quota bar would read offset +
+  // history while the charts only ever count the history, and the two numbers
+  // would disagree — which is exactly the drift this regenerate is meant to fix.
+  // Also switch demo upkeep on so the daily cron keeps the curve advancing.
+  await sql`
+    UPDATE subscriptions
+    SET used_offset = 0, demo_traffic = true, updated_at = now()
+    WHERE id = ${subscriptionId}
+  `;
+
   // Derive the quota bar from the history just written, rather than from the
   // lifetime total. Setting used to every call ever generated made the bar
   // disagree with the usage chart, which only ever counts a window.
@@ -407,6 +418,11 @@ export async function fillPeriodUsage(_prev: FormState, formData: FormData): Pro
   for (let i = 0; i < rows.length; i += 200) {
     await sql`INSERT INTO usage_daily ${sql(rows.slice(i, i + 200))}`;
   }
+
+  // The fill IS the period's usage now, so clear any admin-typed baseline —
+  // otherwise reconcile would report offset + fill and overshoot the target the
+  // percentage asked for.
+  await sql`UPDATE subscriptions SET used_offset = 0, updated_at = now() WHERE id = ${subscriptionId}`;
 
   await reconcileUsed(subscriptionId);
 
